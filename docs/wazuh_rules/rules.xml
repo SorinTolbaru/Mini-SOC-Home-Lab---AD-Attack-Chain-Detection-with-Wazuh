@@ -1,0 +1,60 @@
+<!--
+  Mini SOC Home Lab - Custom detection rules
+  File: /var/ossec/etc/rules/local_rules.xml
+  All rules level 12. Attack chain: macro -> recon -> Kerberoasting -> lateral movement.
+-->
+
+<group name="local,siem_detections,">
+
+  <!-- R1 - 100100 - Office application spawning a command interpreter -->
+  <rule id="100100" level="12">
+    <if_group>sysmon_eid1_detections</if_group>
+    <field name="win.eventdata.parentImage">WINWORD.EXE|EXCEL.EXE|POWERPNT.EXE</field>
+    <field name="win.eventdata.image">cmd.exe|powershell.exe|wscript.exe|cscript.exe|mshta.exe</field>
+    <description>Office application spawned a command interpreter - possible malicious macro execution</description>
+    <mitre>
+      <id>T1566.001</id>
+      <id>T1059.001</id>
+    </mitre>
+  </rule>
+
+  <!-- R2 - 100200 - PowerView / AD recon via PowerShell Script Block Logging (EID 4104) -->
+  <rule id="100200" level="12">
+    <if_group>windows</if_group>
+    <field name="win.system.channel">Microsoft-Windows-PowerShell/Operational</field>
+    <field name="win.system.eventID">^4104$</field>
+    <field name="win.eventdata.scriptBlockText" type="pcre2">(?i)Get-DomainUser|Get-NetUser|Get-DomainGroup|Get-NetGroup|Get-NetShare|Get-NetComputer|Invoke-Kerberoast|New-InMemoryModule|PowerView\.</field>
+    <description>PowerView / Active Directory reconnaissance detected via PowerShell Script Block Logging</description>
+    <mitre>
+      <id>T1059.001</id>
+      <id>T1087.002</id>
+    </mitre>
+  </rule>
+
+  <!-- R3 - 100300 - Kerberoasting (RC4 service ticket for svc-payroll, EID 4769) -->
+  <rule id="100300" level="12">
+    <if_group>windows_security</if_group>
+    <field name="win.system.eventID">^4769$</field>
+    <field name="win.eventdata.serviceName">svc-payroll</field>
+    <field name="win.eventdata.ticketEncryptionType">0x17</field>
+    <field name="win.eventdata.status">0x0</field>
+    <description>Kerberoasting - RC4 service ticket requested for svc-payroll from $(win.eventdata.ipAddress)</description>
+    <mitre>
+      <id>T1558.003</id>
+    </mitre>
+  </rule>
+
+  <!-- R4 - 100400 - Service account network logon (svc-payroll, EID 4624 type 3) -->
+  <rule id="100400" level="12">
+    <if_group>windows_security</if_group>
+    <field name="win.system.eventID">^4624$</field>
+    <field name="win.eventdata.targetUserName">svc-payroll</field>
+    <field name="win.eventdata.logonType">^3$</field>
+    <description>Service account svc-payroll network logon from $(win.eventdata.ipAddress) - possible lateral movement</description>
+    <mitre>
+      <id>T1021.002</id>
+      <id>T1078.002</id>
+    </mitre>
+  </rule>
+
+</group>
