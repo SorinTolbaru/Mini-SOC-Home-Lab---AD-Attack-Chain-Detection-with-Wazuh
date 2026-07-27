@@ -15,7 +15,6 @@ Built as the practical core of my MSc dissertation *"SIEM Platform for Security 
 - [Threat scenario - the attack chain](#threat-scenario---the-attack-chain)
 - [Detection engineering](#detection-engineering)
 - [Response playbooks](#response-playbooks)
-- [Incident report](#incident-report)
 - [Hardening & audit policy (GPO)](#hardening--audit-policy-gpo)
 - [Network security - pfSense least-privilege](#network-security---pfsense-least-privilege)
 - [Alerting](#alerting)
@@ -60,13 +59,13 @@ Three isolated segments behind pfSense, with the SOC network separated from the 
 
 ## Threat scenario - the attack chain
 
-A six-phase intrusion simulating a payroll-data theft, used purely to generate the telemetry the detections fire on. Full step-by-step walkthrough is in [`docs/linux.pdf`](docs/linux.pdf); the captures below show the key moments.
+A six-phase intrusion simulating a payroll-data theft, used purely to generate the telemetry the detections fire on. Full step-by-step walkthrough is in [`docs/guide/Mini-SOC-Home-Lab_Guide`](docs/guide/Mini-SOC-Home-Lab_Guide.pdf); the captures below show the key moments.
 
 | # | Phase | Technique (MITRE ATT&CK) |
 |---|-------|--------------------------|
 | 1 | Malicious Word macro -> Meterpreter C2 over 443 | T1566.001, T1204.002, T1059.001 |
 | 2 | PowerView domain recon (`Get-DomainUser`, `Get-NetShare`, `Get-NetUser -SPN`) | T1087.002, T1069.002, T1135 |
-| 3 | Kerberoasting `svc-payroll` with Rubeus (RC4 ticket) | **T1558.003** |
+| 3 | Kerberoasting `svc-payroll` with Rubeus (RC4 ticket) | T1558.003** |
 | 4 | Offline hash cracking with Hashcat | T1110.002 |
 | 5 | SMB lateral movement with cracked credentials (`net use`) | T1078.002, T1021.002 |
 | 6 | Exfiltration of `salaries.xlsx` from the network share | T1039 |
@@ -114,6 +113,8 @@ Each attack phase mapped to its telemetry, rule, and alert. Gaps are marked deli
 | **R3** | 100300 | Kerberos **EID 4769** - `serviceName=svc-payroll`, `ticketEncryptionType=0x17`, `status=0x0` | 3 - Kerberoasting | T1558.003 |
 | **R4** | 100400 | Logon **EID 4624** - `targetUserName=svc-payroll`, `logonType=3` | 5 - SMB lateral movement | T1021.002, T1078.002 |
 
+> Full rule definitions: [`docs/wazuh_rules/rules.xml`](docs/wazuh_rules/rules.xml)
+
 ![R1 - Office spawning command interpreter (rule.id 100100)](imgs/r1_alert.jpeg)
 
 ![R2 - PowerView recon via Script Block Logging (rule.id 100200)](imgs/r2_alert.jpeg)
@@ -144,7 +145,7 @@ Each detection has a full SOC response playbook - triage, investigation, contain
 | [R3 - Kerberoasting](docs/playbooks/R3-kerberoasting.md) | RC4 service-ticket request for `svc-payroll` |
 | [R4 - Lateral movement](docs/playbooks/R4-lateral-movement.md) | Service-account network logon / SMB access |
 
-
+---
 
 ## Hardening & audit policy (GPO)
 
@@ -153,6 +154,8 @@ Three custom GPOs make the telemetry above exist in the first place:
 - **SOC - DC Audit Policy** (Domain Controllers OU) - Kerberos Service Ticket Operations -> Success; Audit Logon -> Success. Plus `auditpol` for Kerberos Authentication Service + Credential Validation -> Success/Failure.
 - **SOC - PowerShell Logging** (HR OU) - Script Block Logging + Module Logging -> Enabled (EID 4104).
 - **SOC - Account Policies** (domain root) - password history 24, max age 90d, min length 14, complexity on; lockout after 5 attempts, 15-min duration/reset.
+
+> Full GPO settings reference: [`docs/gpos/gpos.md`](docs/gpos/gpos.md)
 
 > **Debugging note:** DC-side user logons initially weren't captured - only machine-account (`$`) events flowed. Root cause was Windows audit subcategories (`Credential Validation` / `Kerberos Authentication Service` = *No Auditing*), **not** Wazuh. Enabling them via `auditpol` + manager restart resolved it. A reminder that SIEM coverage is only as good as the source audit policy.
 
