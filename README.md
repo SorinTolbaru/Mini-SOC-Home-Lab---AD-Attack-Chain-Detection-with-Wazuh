@@ -65,7 +65,7 @@ A six-phase intrusion simulating a payroll-data theft, used purely to generate t
 |---|-------|--------------------------|
 | 1 | Malicious Word macro -> Meterpreter C2 over 443 | T1566.001, T1204.002, T1059.001 |
 | 2 | PowerView domain recon (`Get-DomainUser`, `Get-NetShare`, `Get-NetUser -SPN`) | T1087.002, T1069.002, T1135 |
-| 3 | Kerberoasting `svc-payroll` with Rubeus (RC4 ticket) | T1558.003** |
+| 3 | Kerberoasting `svc-payroll` with Rubeus (RC4 ticket) | T1558.003 |
 | 4 | Offline hash cracking with Hashcat | T1110.002 |
 | 5 | SMB lateral movement with cracked credentials (`net use`) | T1078.002, T1021.002 |
 | 6 | Exfiltration of `salaries.xlsx` from the network share | T1039 |
@@ -131,10 +131,12 @@ Each attack phase mapped to its telemetry, rule, and alert. Gaps are marked deli
 
 - **R1** keys on the parent-child process relationship rather than a payload signature, so it catches any Office-spawned interpreter regardless of the specific macro.
 - **R2** relies on Script Block Logging (EID 4104), enabled by GPO, and matches on cmdlet names via PCRE2 - resilient to variable/whitespace obfuscation that a plain string match would miss.
-- **R3** is the highest-value detection: RC4 (`0x17`) service-ticket requests for a service account are a strong Kerberoasting signal. This rule triggers the Slack alert.
+- **R3** is the highest-value detection: RC4 (`0x17`) service-ticket requests for a service account are a strong Kerberoasting signal - the highest-fidelity link in the chain.
 - **R4** detects *new logon-session establishment*, not per-file access - re-authenticating inside an existing interactive session reuses the SMB session and correctly does **not** re-fire. A fresh logon session is required to trigger it again.
 
-### Response playbooks
+---
+
+## Response playbooks
 
 Each detection has a full SOC response playbook - triage, investigation, containment, remediation, IOCs, and an event timeline with timestamps:
 
@@ -167,7 +169,7 @@ Explicit allow rules per segment, ending in default deny. No pass-all.
 
 **Firewall Aliases**
 
-Hosts: `DC-01 = 10.10.10.10`, `WAZUH = 10.10.20.11`
+Hosts: `DC_01 = 10.10.10.10`, `WAZUH = 10.10.20.11`
 
 Ports: `AD_PORTS = 53, 88, 389, 445, 636` | `WAZUH_PORTS = 1514, 1515` | `WEB_PORTS = 80, 443`
 
