@@ -138,7 +138,7 @@ Each attack phase mapped to its telemetry, rule, and alert. Gaps are marked deli
 
 ## Response playbooks
 
-Each detection has a full SOC response playbook - triage, investigation, containment, remediation, IOCs, and an event timeline with timestamps:
+Each detection has a full SOC response playbook - triage, investigation, containment, remediation and IOCs:
 
 | Playbook | Covers |
 |----------|--------|
